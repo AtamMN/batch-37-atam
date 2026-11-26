@@ -1,0 +1,298 @@
+@startuml HR_Core_Enterprise_ERD
+!theme plain
+hide circle
+skinparam linetype ortho
+skinparam roundcorner 6
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #334155
+  HeaderBackgroundColor #F1F5F9
+  FontName "Inter"
+  FontSize 12
+}
+
+' ==========================================================
+' 1. IDENTITY, TENANCY & RBAC (Enterprise Signup & Login)
+' ==========================================================
+package "Identity & RBAC (Enterprise Login & Signup)" {
+
+  entity "organizations" as orgs {
+    * id : UUID <<PK>>
+    --
+    * company_name : VARCHAR(150)
+    * company_code : VARCHAR(30) <<UK>>
+    * corporate_email_domain : VARCHAR(100)
+    tax_registration_number : VARCHAR(50)
+    * subscription_tier : VARCHAR(30)
+    * is_active : BOOLEAN
+    * created_at : TIMESTAMPTZ
+    * updated_at : TIMESTAMPTZ
+  }
+
+  entity "users" as users {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    * email : VARCHAR(255) <<UK>>
+    * password_hash : TEXT
+    * full_name : VARCHAR(150)
+    * account_status : VARCHAR(20)
+    email_verified_at : TIMESTAMPTZ
+    last_login_at : TIMESTAMPTZ
+    * failed_login_attempts : INTEGER
+    locked_until : TIMESTAMPTZ
+    * created_at : TIMESTAMPTZ
+    * updated_at : TIMESTAMPTZ
+  }
+
+  entity "user_sessions" as sessions {
+    * id : UUID <<PK>>
+    --
+    * user_id : UUID <<FK>>
+    * refresh_token_hash : TEXT <<UK>>
+    ip_address : INET
+    user_agent : TEXT
+    * expires_at : TIMESTAMPTZ
+    revoked_at : TIMESTAMPTZ
+    * created_at : TIMESTAMPTZ
+  }
+
+  entity "roles" as roles {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    * code : VARCHAR(40) <<UK>>
+    * name : VARCHAR(100)
+    description : TEXT
+    * is_system_role : BOOLEAN
+    * created_at : TIMESTAMPTZ
+  }
+
+  entity "permissions" as perms {
+    * id : UUID <<PK>>
+    --
+    * code : VARCHAR(80) <<UK>>
+    * module : VARCHAR(40)
+    description : TEXT
+  }
+
+  entity "user_roles" as user_roles {
+    * user_id : UUID <<PK, FK>>
+    * role_id : UUID <<PK, FK>>
+    --
+    * assigned_by : UUID <<FK>>
+    * assigned_at : TIMESTAMPTZ
+  }
+
+  entity "role_permissions" as role_perms {
+    * role_id : UUID <<PK, FK>>
+    * permission_id : UUID <<PK, FK>>
+  }
+}
+
+' ==========================================================
+' 2. HUMAN RESOURCES (Employee List)
+' ==========================================================
+package "Human Resources (Employee List)" {
+
+  entity "departments" as depts {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    * code : VARCHAR(30) <<UK>>
+    * name : VARCHAR(100)
+    manager_employee_id : UUID <<FK>>
+    * created_at : TIMESTAMPTZ
+  }
+
+  entity "positions" as positions {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    * code : VARCHAR(30) <<UK>>
+    * title : VARCHAR(100)
+    job_level : VARCHAR(30)
+    default_base_salary : NUMERIC(15,2)
+    * created_at : TIMESTAMPTZ
+  }
+
+  entity "employees" as employees {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    user_id : UUID <<FK, UK>>
+    * department_id : UUID <<FK>>
+    * position_id : UUID <<FK>>
+    * employee_code : VARCHAR(40) <<UK>>
+    * full_name : VARCHAR(150)
+    * work_email : VARCHAR(255) <<UK>>
+    phone_number : VARCHAR(30)
+    * employment_type : VARCHAR(30)
+    * employment_status : VARCHAR(30)
+    * hire_date : DATE
+    termination_date : DATE
+    bank_name : VARCHAR(80)
+    bank_account_number : VARCHAR(50)
+    bank_account_holder : VARCHAR(150)
+    tax_id_npwp : VARCHAR(40)
+    * created_at : TIMESTAMPTZ
+    * updated_at : TIMESTAMPTZ
+  }
+}
+
+' ==========================================================
+' 3. PAYROLL ENGINE (Payroll-Hub)
+' ==========================================================
+package "Payroll Operations (Payroll-Hub)" {
+
+  entity "salary_components" as components {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    * code : VARCHAR(40) <<UK>>
+    * name : VARCHAR(100)
+    * component_type : VARCHAR(20)
+    * is_taxable : BOOLEAN
+    * is_recurring : BOOLEAN
+    * is_active : BOOLEAN
+    * created_at : TIMESTAMPTZ
+  }
+
+  entity "employee_salary_structures" as emp_salary {
+    * id : UUID <<PK>>
+    --
+    * employee_id : UUID <<FK>>
+    * component_id : UUID <<FK>>
+    * amount : NUMERIC(15,2)
+    * effective_from : DATE
+    effective_to : DATE
+    * is_active : BOOLEAN
+  }
+
+  entity "payroll_periods" as periods {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    * period_code : VARCHAR(20) <<UK>>
+    * period_name : VARCHAR(100)
+    * start_date : DATE
+    * end_date : DATE
+    * payment_date : DATE
+    * status : VARCHAR(30)
+    * total_employees : INTEGER
+    * total_gross_pay : NUMERIC(18,2)
+    * total_deductions : NUMERIC(18,2)
+    * total_net_pay : NUMERIC(18,2)
+    * created_by : UUID <<FK>>
+    verified_by : UUID <<FK>>
+    approved_by : UUID <<FK>>
+    * created_at : TIMESTAMPTZ
+    * updated_at : TIMESTAMPTZ
+  }
+
+  entity "payroll_items" as payroll_items {
+    * id : UUID <<PK>>
+    --
+    * payroll_period_id : UUID <<FK>>
+    * employee_id : UUID <<FK>>
+    * base_salary : NUMERIC(15,2)
+    * total_allowances : NUMERIC(15,2)
+    * total_overtime : NUMERIC(15,2)
+    * total_deductions : NUMERIC(15,2)
+    * tax_amount : NUMERIC(15,2)
+    * net_salary : NUMERIC(15,2)
+    * disbursement_status : VARCHAR(20)
+    disbursement_ref : VARCHAR(100)
+    paid_at : TIMESTAMPTZ
+    notes : TEXT
+    * created_at : TIMESTAMPTZ
+    * updated_at : TIMESTAMPTZ
+  }
+
+  entity "payroll_item_lines" as item_lines {
+    * id : UUID <<PK>>
+    --
+    * payroll_item_id : UUID <<FK>>
+    * component_id : UUID <<FK>>
+    * component_name_snapshot : VARCHAR(100)
+    * component_type : VARCHAR(20)
+    * amount : NUMERIC(15,2)
+  }
+}
+
+' ==========================================================
+' 4. ADMIN WORKFLOW GOVERNANCE (Payroll Milestone)
+' ==========================================================
+package "Admin Governance (Payroll Milestone)" {
+
+  entity "payroll_milestone_templates" as milestone_tpl {
+    * id : UUID <<PK>>
+    --
+    * organization_id : UUID <<FK>>
+    * owner_role_id : UUID <<FK>>
+    * sequence_order : INTEGER
+    * title : VARCHAR(120)
+    description : TEXT
+    * due_day_offset : INTEGER
+    * is_mandatory : BOOLEAN
+    * is_active : BOOLEAN
+    * created_at : TIMESTAMPTZ
+  }
+
+  entity "payroll_milestones" as milestones {
+    * id : UUID <<PK>>
+    --
+    * payroll_period_id : UUID <<FK>>
+    template_id : UUID <<FK>>
+    * assigned_role_id : UUID <<FK>>
+    * sequence_order : INTEGER
+    * title : VARCHAR(120)
+    * target_date : DATE
+    * status : VARCHAR(20)
+    completed_by : UUID <<FK>>
+    completed_at : TIMESTAMPTZ
+    remarks : TEXT
+    * created_at : TIMESTAMPTZ
+    * updated_at : TIMESTAMPTZ
+  }
+}
+
+' ==========================================================
+' RELATIONSHIPS
+' ==========================================================
+orgs ||--o{ users : "has members"
+orgs ||--o{ roles : "defines roles"
+orgs ||--o{ depts : "structures"
+orgs ||--o{ positions : "defines"
+orgs ||--o{ employees : "employs"
+orgs ||--o{ components : "configures"
+orgs ||--o{ periods : "runs"
+orgs ||--o{ milestone_tpl : "standardizes"
+
+users ||--o{ sessions : "authenticates via"
+users ||--o{ user_roles : "assigned"
+roles ||--o{ user_roles : "granted to"
+roles ||--o{ role_permissions : "includes"
+perms ||--o{ role_permissions : "bound to"
+
+users |o--o| employees : "optional login link"
+depts ||--o{ employees : "assigns"
+positions ||--o{ employees : "classifies"
+
+employees ||--o{ emp_salary : "has compensation"
+components ||--o{ emp_salary : "defines rate"
+
+periods ||--o{ payroll_items : "contains payslips"
+employees ||--o{ payroll_items : "receives"
+payroll_items ||--o{ item_lines : "itemized by"
+components ||--o{ item_lines : "categorizes"
+
+users ||--o{ periods : "creates / verifies / approves"
+
+roles ||--o{ milestone_tpl : "responsible role"
+roles ||--o{ milestones : "assigned role"
+milestone_tpl |o--o{ milestones : "instantiates"
+periods ||--o{ milestones : "tracks progress"
+users |o--o{ milestones : "signs off"
+
+@enduml
